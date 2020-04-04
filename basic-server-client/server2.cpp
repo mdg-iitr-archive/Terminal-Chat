@@ -52,61 +52,73 @@ int main(int argc, char *argv[])
         cerr << "Error binding socket to local address" << endl;
         exit(0);
     }
-    cout << "Waiting for a client to connect..." << endl;
-    //listen for up to 5 requests at a time
-    listen(serverSd, 5);
-    //receive a request from client using accept
-    //we need a new address to connect with the client
-    sockaddr_in newSockAddr;
-    socklen_t newSockAddrSize = sizeof(newSockAddr);
-    //accept, create a new socket descriptor to 
-    //handle the new connection with client
-    int newSd = accept(serverSd, (sockaddr *)&newSockAddr, &newSockAddrSize);
-    if(newSd < 0)
-    {
-        cerr << "Error accepting request from client!" << endl;
-        exit(1);
-    }
-    cout << "Connected with client!" << endl;
-    //lets keep track of the session time
-    struct timeval start1, end1;
-    gettimeofday(&start1, NULL);
-    //also keep track of the amount of data sent as well
-    int bytesRead, bytesWritten = 0;
+    bool flag = false;
+
     while(1)
     {
-        //receive a message from the client (listen)
-        cout << "Awaiting client response..." << endl;
-        memset(&msg, 0, sizeof(msg));//clear the buffer
-        bytesRead += recv(newSd, (char*)&msg, sizeof(msg), 0);
-        if(!strcmp(msg, "exit"))
+
+        cout << "Waiting for a client to connect..." << endl;
+        //listen for up to 5 requests at a time
+        listen(serverSd, 5);
+        //receive a request from client using accept
+        //we need a new address to connect with the client
+        sockaddr_in newSockAddr;
+        socklen_t newSockAddrSize = sizeof(newSockAddr);
+        //accept, create a new socket descriptor to 
+        //handle the new connection with client
+        int newSd = accept(serverSd, (sockaddr *)&newSockAddr, &newSockAddrSize);
+        if(newSd < 0)
         {
-            cout << "Client has quit the session" << endl;
-            break;
+            cerr << "Error accepting request from client!" << endl;
+            exit(1);
         }
-        cout << "Client: " << msg << endl;
-        cout << ">";
-        string data;
-        getline(cin, data);
-        memset(&msg, 0, sizeof(msg)); //clear the buffer
-        strcpy(msg, data.c_str());
-        if(data == "exit")
+        cout << "Connected with client!" << endl;
+        //lets keep track of the session time
+        struct timeval start1, end1;
+        gettimeofday(&start1, NULL);
+        //also keep track of the amount of data sent as  well
+        int bytesRead, bytesWritten = 0;
+        while(1)
         {
-            //send to the client that server has closed the connection
-            send(newSd, (char*)&msg, strlen(msg), 0);
-            break;
+            //receive a message from the client (listen)
+            cout << "Awaiting client response..." << endl;
+            memset(&msg, 0, sizeof(msg));//clear the buffer
+            bytesRead += recv(newSd, (char*)&msg, sizeof(msg), 0);
+            if(!strcmp(msg, "exit"))
+            {
+                cout << "Client has quit the session" << endl;
+                break;
+            }
+            cout << "Client: " << msg << endl;
+            cout << ">";
+            string data;
+            getline(cin, data);
+            memset(&msg, 0, sizeof(msg)); //clear the buffer
+            strcpy(msg, data.c_str());
+            if(data == "exit")
+            {
+                //send to the client that server has closed the connection
+                send(newSd, (char*)&msg, strlen(msg), 0);
+                flag = true ;
+                break;
+
+            }
+            //send the message to client
+            bytesWritten += send(newSd, (char*)&msg, strlen(msg), 0);
         }
-        //send the message to client
-        bytesWritten += send(newSd, (char*)&msg, strlen(msg), 0);
-    }
-    //we need to close the socket descriptors after we're all done
-    gettimeofday(&end1, NULL);
-    close(newSd);
+        if(flag)
+            break;
+
+    
+        //we need to close the socket descriptors after we're all done
+        gettimeofday(&end1, NULL);
+        close(newSd);
+        cout << "********Session********" << endl;
+        cout << "Bytes written: " << bytesWritten << " Bytes read: " << bytesRead << endl;
+        cout << "Elapsed time: " << (end1.tv_sec - start1.tv_sec) 
+            << " secs" << endl;
+        cout << "Connection closed with that client" << endl;
+    }   
     close(serverSd);
-    cout << "********Session********" << endl;
-    cout << "Bytes written: " << bytesWritten << " Bytes read: " << bytesRead << endl;
-    cout << "Elapsed time: " << (end1.tv_sec - start1.tv_sec) 
-        << " secs" << endl;
-    cout << "Connection closed..." << endl;
     return 0;   
 }
