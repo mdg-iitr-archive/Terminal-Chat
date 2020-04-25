@@ -9,34 +9,38 @@
 #include <fstream>
 
 #define PORT 3001
-#define BUF_SIZE 1025
+#define BUF_SIZE 1024
 
-//return true if this command is stored in buffer: "/sending file"
-bool isIncomingFile(int valread, char* buffer){
-    if(valread==13){
-        std::string s = "/sending file";
-        for(int i=0; i<valread; i++){
-            if(s[i]!=buffer[i]){
-                return false;
-            }
+//test command according to string
+bool checkCommand(int length, std::string command, int valread, char* buffer){
+    //this check is unnecessary, but will increase performance
+    if(valread==length){
+        //this should be already done, still doing again
+        buffer[valread] = '\0';
+
+        std::string s = buffer;
+        if(s==command){
+            return true;
+        }else{
+            return false;
         }
-        return true;
     }
     return false;
 }
 
+//return true if this command is stored in buffer: "/sending file"
+bool isIncomingFile(int valread, char* buffer){
+    return checkCommand(13, "/sending file", valread, buffer);
+}
+
 //return true if this command is stored in buffer: "/file sent"
 bool isFileRecieved(int valread, char* buffer){
-    if(valread==10){
-        std::string s = "/file sent";
-        for(int i=0; i<valread; i++){
-            if(s[i]!=buffer[i]){
-                return false;
-            }
-        }
-        return true;
-    }
-    return false;
+    return checkCommand(10, "/file sent", valread, buffer);
+}
+
+//return true if this command is stored in buffer: "/requesting file"
+bool isFileRequested(int valread, char* buffer){
+    return checkCommand(16, "/requesting file", valread, buffer);
 }
 
 int main(){
@@ -176,11 +180,15 @@ int main(){
                     //print incoming message details
                     printf("Recieved message: %s, from socket_fd: %d\n", buffer, sd);
                     
+                    //This msg_string will be used later to inform all clients about the activity.
+                    std::string msg_string;
+
                     //A client is sending a file to server
                     if(isIncomingFile(valread, buffer)){
                         //firstly get the file name
                         char file_name[BUF_SIZE];
                         valread = read(sd, file_name, BUF_SIZE);
+                        file_name[valread] = '\0';
 
                         //checks for error on client side in which it may disconnect
                         if(valread!=0){
@@ -200,22 +208,43 @@ int main(){
 
                             out.close(); 
                         } 
+
+                        msg_string = "Client " + std::to_string(sd) + " sent file: " + file_name;
+                    }
+
+                    //A client has requested a file from server
+                    else if(isFileRequested(valread, buffer)){
+                        //firstly get the file name of file being requested
+                        char file_name[BUF_SIZE];
+                        valread = read(sd, file_name, BUF_SIZE);
+                        file_name[valread] = '\0';
+
+                        //for reading file
+                        std::ifstream in(file_name, std::ios_base::in | std::ios_base::binary);
+
+                        do{
+                            in.read(&buffer[0], BUF_SIZE);      // Read at most n bytes into
+                            send(sd, buffer, BUF_SIZE, 0);
+                        } while (in.gcount() > 0);  
+
+                        in.close();
                     }
                     
-                    //A client is sending a text message to server
+                    //A client has sent a text message
                     else{
-                        //Used while sending messages to clients
-                        std::string msg_string = "Client "+std::to_string(sd)+": "+buffer;
-                        char* msg = (char *)msg_string.c_str();
+                        msg_string = "Client "+std::to_string(sd)+": "+buffer;
+                    }
 
-                        //send incoming message details to all clients
-                        //socket_fd (serves as client name) is added in string showing from which client the request has been recieved
-                        for(int j=0; j<max_clients; j++){
-                            int temp_sd = client_sockets[j];
+                    //Inform all clients about the activity | send them msg_string
+                    char* msg = (char *)msg_string.c_str();
 
-                            if(temp_sd != sd && temp_sd!=0){
-                                send(temp_sd, msg, strlen(msg), 0 );   
-                            }
+                    //send incoming message details to all clients
+                    //socket_fd (serves as client name) is added in string showing from which client the request has been recieved
+                    for(int j=0; j<max_clients; j++){
+                        int temp_sd = client_sockets[j];
+
+                        if(temp_sd != sd && temp_sd!=0){
+                            send(temp_sd, msg, strlen(msg), 0 );   
                         }
                     }
                 }   
