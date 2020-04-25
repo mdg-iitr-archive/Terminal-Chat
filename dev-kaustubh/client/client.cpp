@@ -101,10 +101,12 @@ int main(void) {
                 send(client_sock, request, strlen(request), 0);
 
                 //Send file name to server
-                std::cout<<"Enter file name: "<<std::endl;
+                std::cout<<"Enter file name."<<std::endl;
                 getline(std::cin, s);
                 request = (char * )(s.c_str());
                 send(client_sock, request, strlen(request), 0);
+
+                std::cout<<"Sending File...\n";
 
                 //Start sending file to the server, request contains file name at tha moment
                 std::ifstream in(request, std::ios_base::in | std::ios_base::binary);
@@ -120,6 +122,8 @@ int main(void) {
                 s = "/file sent";
                 request = (char * )(s.c_str());
                 send(client_sock, request, strlen(request), 0);
+
+                std::cout<<"File Sent!\n\n";
             }
 
             //user wants to recieve file
@@ -129,10 +133,12 @@ int main(void) {
                 send(client_sock, request, strlen(request), 0);
 
                 //Send file name to server that you want to recieve
-                std::cout<<"Enter file name to get from server: "<<std::endl;
+                std::cout<<"Enter file name to get from server."<<std::endl;
                 getline(std::cin, s);
                 request = (char * )(s.c_str());
                 send(client_sock, request, strlen(request), 0);
+
+                std::cout<<"Requesting File...\n";
 
                 //Start recieving file from the server, request contains file name at tha moment and the recieved file will be stored there
                 std::ofstream out(request, std::ios_base::out | std::ios_base::binary);
@@ -151,6 +157,8 @@ int main(void) {
                 }        
 
                 out.close(); 
+
+                std::cout<<"File Recieved!\n\n";
             }
 
             //user wants to send a normal text message

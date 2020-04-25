@@ -5,6 +5,7 @@
 #include <unistd.h>     
 #include <arpa/inet.h> 
 
+#include<iostream>
 #include <string>
 #include <fstream>
 
@@ -190,6 +191,9 @@ int main(){
                         valread = read(sd, file_name, BUF_SIZE);
                         file_name[valread] = '\0';
 
+                        //copy required as file_name is lost while writing file
+                        std::string file_name_copy = file_name;
+
                         //checks for error on client side in which it may disconnect
                         if(valread!=0){
                             std::ofstream out(file_name, std::ios_base::out | std::ios_base::binary);
@@ -210,7 +214,8 @@ int main(){
                             out.close(); 
                         } 
 
-                        msg_string = "Client " + std::to_string(sd) + " sent file: " + file_name;
+                        msg_string = "Client "+std::to_string(sd)+" sent file: " + file_name_copy;
+                        std::cout<<"Recieved file " + file_name_copy + " from client: " + std::to_string(sd)<<std::endl;
                     }
 
                     //A client has requested a file from server
@@ -219,6 +224,9 @@ int main(){
                         char file_name[BUF_SIZE];
                         valread = read(sd, file_name, BUF_SIZE);
                         file_name[valread] = '\0';
+
+                        //copy required as file_name is lost while writing file
+                        std::string file_name_copy = file_name;
 
                         //for reading file
                         std::ifstream in(file_name, std::ios_base::in | std::ios_base::binary);
@@ -229,6 +237,12 @@ int main(){
                         } while (in.gcount() > 0);  
 
                         in.close();
+
+                        //Inform Client that file sent completely
+                        std::string sent_file_command = "/file sent";
+                        send(sd, (char *)sent_file_command.c_str(), strlen((char *)sent_file_command.c_str()), 0);
+
+                        std::cout<<"Sent file " + file_name_copy + " to client: " + std::to_string(sd)<<std::endl;
                     }
                     
                     //A client has sent a text message
