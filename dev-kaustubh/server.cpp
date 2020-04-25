@@ -28,9 +28,9 @@ bool checkCommand(int length, std::string command, int valread, char* buffer){
     return false;
 }
 
-//return true if this command is stored in buffer: "/sending file"
+//return true if this command is stored in buffer: "/send file"
 bool isIncomingFile(int valread, char* buffer){
-    return checkCommand(13, "/sending file", valread, buffer);
+    return checkCommand(10, "/send file", valread, buffer);
 }
 
 //return true if this command is stored in buffer: "/file sent"
@@ -40,7 +40,7 @@ bool isFileRecieved(int valread, char* buffer){
 
 //return true if this command is stored in buffer: "/requesting file"
 bool isFileRequested(int valread, char* buffer){
-    return checkCommand(16, "/requesting file", valread, buffer);
+    return checkCommand(13, "/request file", valread, buffer);
 }
 
 int main(){
@@ -161,6 +161,9 @@ int main(){
                 //Read the incoming message  
                 valread = read( sd , buffer, BUF_SIZE);
 
+                //mark string termination in buffer
+                buffer[valread] = '\0';
+
                 //Check for connection closing request 
                 if (valread == 0)   
                 {   
@@ -174,9 +177,6 @@ int main(){
                     
                 else
                 {   
-                    //mark string termination in buffer
-                    buffer[valread] = '\0';
-
                     //print incoming message details
                     printf("Recieved message: %s, from socket_fd: %d\n", buffer, sd);
                     
@@ -197,6 +197,7 @@ int main(){
                             //start reading file data from socket and write in a new file
                             while(true) {
                                 valread = read(sd, buffer, BUF_SIZE);
+                                buffer[valread] = '\0';
 
                                 //recieved command telling file recieved completely in previous iteration
                                 if(isFileRecieved(valread, buffer)){
