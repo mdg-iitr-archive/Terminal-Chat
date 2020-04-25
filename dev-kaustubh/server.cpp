@@ -6,7 +6,38 @@
 #include <arpa/inet.h> 
 
 #include <string>
+#include <fstream>
+
 #define PORT 3001
+#define BUF_SIZE 1025
+
+//return true if this command is stored in buffer: "/sending file"
+bool isIncomingFile(int valread, char* buffer){
+    if(valread==13){
+        std::string s = "/sending file";
+        for(int i=0; i<valread; i++){
+            if(s[i]!=buffer[i]){
+                return false;
+            }
+        }
+        return true;
+    }
+    return false;
+}
+
+//return true if this command is stored in buffer: "/file sent"
+bool isFileRecieved(int valread, char* buffer){
+    if(valread==10){
+        std::string s = "/file sent";
+        for(int i=0; i<valread; i++){
+            if(s[i]!=buffer[i]){
+                return false;
+            }
+        }
+        return true;
+    }
+    return false;
+}
 
 int main(){
     int opt = 1;   
@@ -15,7 +46,7 @@ int main(){
     int sd, max_sd;   //socket descriptor
     struct sockaddr_in address;   
          
-    char buffer[1025] = {0};  //data buffer of 1K  
+    char buffer[BUF_SIZE] = {0};  //data buffer of 1K  
          
     //create a master socket to accept new connections from clients
     if( (master_socket = socket(AF_INET , SOCK_STREAM , 0)) == 0)   
@@ -98,7 +129,7 @@ int main(){
             printf("New connection details: socket_fd is %d , ip is : %s , port : %d\n" , new_socket , inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
            
             //send greeting and inform client of its socket_fd number (which serves as its name)
-            char greeting[1024];
+            char greeting[BUF_SIZE];
             sprintf(greeting, "Successfully connected with server.\nYour socket_fd number (serves as name) is %d.\n", new_socket);  
             if(send(new_socket, greeting, strlen(greeting), 0) != strlen(greeting))      
                 perror("send");   
@@ -118,12 +149,13 @@ int main(){
         //else its some IO operation on some other socket 
         for (int i = 0; i < max_clients; i++)   
         {   
+            //sd should be socket on which the IO operation has happened
             sd = client_sockets[i];   
                  
             if (FD_ISSET(sd , &readfds))   
             {   
                 //Read the incoming message  
-                valread = read( sd , buffer, 1024);
+                valread = read( sd , buffer, BUF_SIZE);
 
                 //Check for connection closing request 
                 if (valread == 0)   
@@ -143,18 +175,47 @@ int main(){
 
                     //print incoming message details
                     printf("Recieved message: %s, from socket_fd: %d\n", buffer, sd);
+                    
+                    //A client is sending a file to server
+                    if(isIncomingFile(valread, buffer)){
+                        //firstly get the file name
+                        char file_name[BUF_SIZE];
+                        valread = read(sd, file_name, BUF_SIZE);
 
-                    //Used while sending messages to clients
-                    std::string msg_string = "Client "+std::to_string(sd)+": "+buffer;
-                    char* msg = (char *)msg_string.c_str();
+                        //checks for error on client side in which it may disconnect
+                        if(valread!=0){
+                            std::ofstream out(file_name, std::ios_base::out | std::ios_base::binary);
 
-                    //send incoming message details to all clients
-                    //socket_fd (serves as client name) is added in string showing from which client the request has been recieved
-                    for(int j=0; j<max_clients; j++){
-                        int temp_sd = client_sockets[j];
+                            //start reading file data from socket and write in a new file
+                            while(true) {
+                                valread = read(sd, buffer, BUF_SIZE);
 
-                        if(temp_sd != sd && temp_sd!=0){
-                            send(temp_sd, msg, strlen(msg), 0 );   
+                                //recieved command telling file recieved completely in previous iteration
+                                if(isFileRecieved(valread, buffer)){
+                                    break;
+                                }else{
+                                    out.write(&buffer[0], BUF_SIZE);
+                                }
+                            }        
+
+                            out.close(); 
+                        } 
+                    }
+                    
+                    //A client is sending a text message to server
+                    else{
+                        //Used while sending messages to clients
+                        std::string msg_string = "Client "+std::to_string(sd)+": "+buffer;
+                        char* msg = (char *)msg_string.c_str();
+
+                        //send incoming message details to all clients
+                        //socket_fd (serves as client name) is added in string showing from which client the request has been recieved
+                        for(int j=0; j<max_clients; j++){
+                            int temp_sd = client_sockets[j];
+
+                            if(temp_sd != sd && temp_sd!=0){
+                                send(temp_sd, msg, strlen(msg), 0 );   
+                            }
                         }
                     }
                 }   
