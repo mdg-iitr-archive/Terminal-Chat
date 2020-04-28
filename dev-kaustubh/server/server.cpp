@@ -16,8 +16,43 @@
 
 using namespace std;
 
+//data buffer of 1K  
+char buffer[BUF_SIZE] = {0};
+
+//logs file name
+const string logs_file_name = "chat_logs.txt";
+
 //maps client socket with his username 
 map<int, string> map_client_username;
+
+//clean logs file
+void cleanLogsFile(){
+    ofstream logs_out(logs_file_name, ios_base::out | ios_base::binary);
+    logs_out.write("", 0);
+    logs_out.close();
+}
+
+//store in logs file
+void addToLogs(char* m){
+    ofstream logs_out(logs_file_name, ios_base::app | ios_base::binary);
+    logs_out.write("\n", 1);
+    logs_out.write(&m[0], strlen(m));
+    logs_out.close();         
+}
+
+//send logs to a new client on connection
+void sendLogsToClient(int sock_fd){
+    cout<<"Sending logs to client_fd: "+to_string(sock_fd)<<endl;
+    ifstream in_logs(logs_file_name, ios_base::in | ios_base::binary);
+    
+    in_logs.read(&buffer[0], BUF_SIZE);
+    while (in_logs.gcount() > 0){
+        send(sock_fd, buffer, in_logs.gcount(), 0);
+        in_logs.read(&buffer[0], BUF_SIZE);
+    }
+
+    in_logs.close();
+}
 
 //test command according to string
 bool checkCommand(int length, string command, int valread, char* buffer){
@@ -57,9 +92,10 @@ int main(){
     int activity, valread;   
     int sd, max_sd;   //socket descriptor
     struct sockaddr_in address;   
-         
-    char buffer[BUF_SIZE] = {0};  //data buffer of 1K  
-         
+
+    //clean logs
+    cleanLogsFile();
+              
     //create a master socket to accept new connections from clients
     if( (master_socket = socket(AF_INET , SOCK_STREAM , 0)) == 0)   
     {   
@@ -170,17 +206,21 @@ int main(){
 
             //print new connection details
             printf("New connection details: socket_fd is %d , ip is : %s , port : %d\n, username: %s.\n" , new_socket , inet_ntoa(address.sin_addr) , ntohs(address.sin_port), buffer);
+
+            //send current logs to the new client
+            sendLogsToClient(new_socket);
         }   
 
         else{ 
             //else its some IO operation on some other socket 
             for (int i = 0; i < max_clients; i++)   
-            {   
-                //sd should be socket on which the IO operation has happened
-                sd = client_sockets[i];   
-                    
-                if (FD_ISSET(sd , &readfds))   
+            {                       
+                //this will satisfy only once int the whole for loop
+                if (FD_ISSET(client_sockets[i] , &readfds))   
                 {   
+                    //sd should be correct socket on which the IO operation has happened
+                    sd = client_sockets[i];   
+
                     //Read the incoming message  
                     valread = read( sd , buffer, BUF_SIZE);
 
@@ -256,10 +296,11 @@ int main(){
                             //for reading file
                             ifstream in(file_name, ios_base::in | ios_base::binary);
 
-                            do{
-                                in.read(&buffer[0], BUF_SIZE);      // Read at most n bytes into
-                                send(sd, buffer, BUF_SIZE, 0);
-                            } while (in.gcount() > 0);  
+                            in.read(&buffer[0], BUF_SIZE);
+                            while (in.gcount() > 0){
+                                send(sd, buffer, in.gcount(), 0);
+                                in.read(&buffer[0], BUF_SIZE);
+                            }
 
                             in.close();
 
@@ -275,12 +316,18 @@ int main(){
                             msg_string = map_client_username[sd]+": "+buffer;
                         }
                     }   
+
+                    //as the for loop should satisty FD_ISSET only once
+                    break;
                 }   
             }
         }
 
         //Inform all clients about the activity, i.e. send them msg_string (as required)
         char* msg = (char *)msg_string.c_str();
+
+        //store this message in logs.txt
+        addToLogs(msg);
 
         //send incoming message details to all clients
         //socket_fd (serves as client name) is added in string showing from which client the request has been recieved

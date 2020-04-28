@@ -132,10 +132,11 @@ int main(void) {
                         //Start sending file to the server, request contains file name at tha moment
                         ifstream in(request, ios_base::in | ios_base::binary);
 
-                        do{
-                            in.read(&buffer[0], BUF_SIZE);      // Read at most n bytes into
-                            send(client_sock, buffer, BUF_SIZE, 0);
-                        } while (in.gcount() > 0);  
+                        in.read(&buffer[0], BUF_SIZE);
+                        while (in.gcount() > 0){
+                            send(client_sock, buffer, in.gcount(), 0);
+                            in.read(&buffer[0], BUF_SIZE);
+                        } 
 
                         in.close();
 
