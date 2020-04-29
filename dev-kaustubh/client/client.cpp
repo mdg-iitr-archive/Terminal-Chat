@@ -14,7 +14,7 @@ using namespace std;
 
 //tells if a given string is a possible command (all possible commands here) (according to accepted commands by server)
 bool isCommandValid(string s){
-    if(s == "/send file" || s == "/file sent" || s == "/requesting file"){
+    if(s == "/send file" || s == "/file sent" || s == "/request file"){
         return true;
     }
     return false;
