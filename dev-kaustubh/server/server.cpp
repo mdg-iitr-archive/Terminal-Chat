@@ -81,7 +81,7 @@ bool isFileRecieved(int valread, char* buffer){
     return checkCommand(10, "/file sent", valread, buffer);
 }
 
-//return true if this command is stored in buffer: "/requesting file"
+//return true if this command is stored in buffer: "/request file"
 bool isFileRequested(int valread, char* buffer){
     return checkCommand(13, "/request file", valread, buffer);
 }
