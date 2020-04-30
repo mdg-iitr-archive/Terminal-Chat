@@ -6,15 +6,68 @@
 #include <iostream>
 #include <string>
 #include <fstream>
+#include <chrono>
+#include <thread>
 
-#define PORT 3001
 #define BUF_SIZE 1024
 
 using namespace std;
 
+const char* IP_ADDRESS = "127.0.0.1";
+const int MAIN_SERVER_PORT = 3000;
+
+//get port from main server
+int getPort(char* channel){
+    int client_sock = 0;
+    struct sockaddr_in serv_addr;
+
+    if ((client_sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        printf("\n Socket creation error \n");
+        return -1;
+    }
+
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(MAIN_SERVER_PORT);
+
+    if (inet_pton(AF_INET, IP_ADDRESS, & serv_addr.sin_addr) <= 0) {
+        printf("\nInvalid address/ Address not supported \n");
+        return -1;
+    }
+
+    puts("Connecting to main server...");
+
+    if (connect(client_sock, (struct sockaddr * ) & serv_addr, sizeof(serv_addr)) < 0) {
+        printf("\nConnection Failed \n");
+        return -1;
+    }
+
+    //sending ch_name
+    send(client_sock, channel, strlen(channel),0);
+
+    //get port number
+    char buffer[10] = {0};
+    int valread = read(client_sock, buffer, 10);
+    buffer[valread] = '\0';
+
+    //last character in buffer gives wait or not wait    
+    char wait = buffer[valread-1];
+
+    //buffer should not give only port as its used to return port
+    buffer[valread-1] = '\0';
+
+    close(client_sock);
+
+    if(wait=='1'){
+        cout<<"Please wait for 5 sec for new channel server to start."<<endl;
+        this_thread::sleep_for(chrono::milliseconds(5000));
+    }
+
+    return atoi(buffer);
+}
+
 //tells if a given string is a possible command (all possible commands here) (according to accepted commands by server)
 bool isCommandValid(string s){
-    if(s == "/send file" || s == "/file sent" || s == "/requesting file"){
+    if(s == "/send file" || s == "/file sent" || s == "/request file"){
         return true;
     }
     return false;
@@ -43,10 +96,19 @@ bool isFileRecieved(int valread, char* buffer){
 }
 
 char my_name[15]={0};
+char ch_name[15]={0};
 
-int main(void) {
+int main() {
+    cout<<"Enter one word channel name (max_length: 15): ";
+    cin.get(ch_name, 15);
+    //clear input buffer otherwise cin.get wont wait for another input
+    while ((getchar()) != '\n'); 
     cout<<"Please enter one word username (max_length: 15): ";
     cin.get(my_name, 15);
+    
+    //get port number of your channel server
+    const int PORT = getPort(ch_name);
+    cout<<"Channel Port: "<<to_string(PORT)<<endl<<endl;
 
     int client_sock = 0;
     struct sockaddr_in serv_addr;
@@ -61,7 +123,7 @@ int main(void) {
     serv_addr.sin_port = htons(PORT);
 
     // Convert IPv4 and IPv6 addresses from text to binary form 
-    if (inet_pton(AF_INET, "127.0.0.1", & serv_addr.sin_addr) <= 0) {
+    if (inet_pton(AF_INET, IP_ADDRESS, & serv_addr.sin_addr) <= 0) {
         printf("\nInvalid address/ Address not supported \n");
         return -1;
     }
