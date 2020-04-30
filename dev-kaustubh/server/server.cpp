@@ -11,7 +11,6 @@
 #include <string>
 #include <map>
 
-#define PORT 3001
 #define BUF_SIZE 1024
 
 using namespace std;
@@ -20,7 +19,7 @@ using namespace std;
 char buffer[BUF_SIZE] = {0};
 
 //logs file name
-const string logs_file_name = "chat_logs.txt";
+const string logs_file_name = "./chat_logs.txt";
 
 //maps client socket with his username 
 map<int, string> map_client_username;
@@ -86,7 +85,10 @@ bool isFileRequested(int valread, char* buffer){
     return checkCommand(13, "/request file", valread, buffer);
 }
 
-int main(){
+//NOTE: PORT must come as argv[1]
+int main(int argc, char** argv){
+    const int PORT = atoi(argv[1]);
+
     int opt = 1;   
     int master_socket, addrlen, new_socket, client_sockets[30] = {0}, max_clients = 30;
     int activity, valread;   
